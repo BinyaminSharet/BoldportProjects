@@ -1,5 +1,15 @@
 #include <Wire.h>
 
+// By default, MCP23017 has IOCON.BANK = 0
+// what this means is that the register addresses toggle for port A and B
+// So here we define the register addresses without per-port mask.
+// When a register accessed, it is OR'd with a port mask (PA_MASK / PB_MASK)
+
+// if you don't like this mode, you can set IOCON.BANK = 1
+// and then the register addresses will change,
+// where the addresses for port A start from 0, and for B start from 0x10
+// in this case, you can still use a base register value, and set the masks to
+// 0x00 (port A) and 0x10 (port B)
 #define REG_IODIR       0x00
 #define REG_IPOL        0x02
 #define REG_GPINTEN     0x04
@@ -14,6 +24,8 @@
 
 #define PA_MASK     0x00
 #define PB_MASK     0x01
+
+// Those are only meant to be used in the IXO class
 
 #define IXO_PORT_A      0
 #define IXO_PORT_B      1
@@ -31,10 +43,15 @@ public:
         gpio_[IXO_PORT_B] = 0b00000000;
     }
 
+    // begin communication
     void begin() {
         Wire.begin();
     }
 
+    // reset the IxpandO.
+    // A0 is connected to a pulled-up RSTn
+    // We set it to low for a while (less time might be enough)
+    // and when we set it to high again it should be reset
     void reset() {
         pinMode(A0, OUTPUT);
         delay(10);
@@ -59,6 +76,8 @@ public:
         *value = Wire.read();
     }
 
+    // set direction of pins of a given port, one bit per pin
+    // 0 means output, 1 means input
     void set_dir(uint8_t port, uint8_t pins) {
         reg_write(port, REG_IODIR, pins);
         dir_[port] = pins;
@@ -66,10 +85,6 @@ public:
 
     void set_gpio(uint8_t port, uint8_t pins) {
         reg_write(port, REG_GPIO, pins);
-    }
-
-    void latch(uint8_t port, uint8_t pins) {
-        reg_write(port, REG_OLAT, pins);
     }
 
     void read_gpio(uint8_t port, uint8_t * pins) {
@@ -93,9 +108,9 @@ void setup()
     // reset IxpandO
     ixo.reset();
     // set each pin in port A as output
-    ixo.reg_write(IXO_PORT_A, REG_IODIR, 0b00000000);
+    ixo.set_dir(IXO_PORT_A, 0b00000000);
     // set each pin in port B as input
-    ixo.reg_write(IXO_PORT_B, REG_IODIR, 0b11111111);
+    ixo.set_dir(IXO_PORT_B, 0b11111111);
     // set pull-ups for each pin in port B
     ixo.reg_write(IXO_PORT_B, REG_GPPU, 0b11111111);
     // revert the polarity of each pin in port B because we use pull up,
@@ -112,7 +127,7 @@ void loop()
     pins = (pins & 0xF0) >> 4 | (pins & 0x0F) << 4;
     pins = (pins & 0xCC) >> 2 | (pins & 0x33) << 2;
     pins = (pins & 0xAA) >> 1 | (pins & 0x55) << 1;
-    ixo.reg_write(IXO_PORT_A, REG_GPIO, pins);
+    ixo.set_gpio(IXO_PORT_A, pins);
     delay(100);
 }
 
