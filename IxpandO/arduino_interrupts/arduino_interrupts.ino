@@ -91,6 +91,7 @@ IXO ixo(IXO_ADDRESS, 0);
 
 void setup()
 {
+    Serial.begin(9600);
     ixo.begin();
     // reset IxpandO
     ixo.reset();
@@ -123,6 +124,7 @@ void loop()
 {  
   if (changed) {
     uint8_t pins = 0;
+    Serial.println("change!");
     changed = 0;
     ixo.read_gpio(IXO_PORT_B, &pins);
     // reverse the pins ..
